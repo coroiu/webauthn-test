@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webauthn Localhost</title>
+  <style>
+    .d-none {
+      display: none;
+    }
+
+    .webauthn-alert {
+      font-weight: bold;
+      padding: 1rem;
+      margin: 1rem 0;
+      border: 1px solid;
+    }
+
+    .webauthn-success {
+      color: green;
+      border-color: green;
+    }
+
+    .webauthn-fail {
+      color: red;
+      border-color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Webauthn Localhost</h1>
+
+  <h2>Create passkey</h2>
+  <button id="btn-create">Create</button>
+
+  <h2>Authenticate passkey</h2>
+  <button id="btn-authenticate">Authenticate</button>
+
+  <h2>Result</h2>
+  <div class="webauthn-alert webauthn-success d-none">Success!</div>
+  <div class="webauthn-alert webauthn-fail d-none">Fail!</div>
+
+  <script>
+    const createButton = document.querySelector('button#btn-create');
+    const authenticateButton = document.querySelector('button#btn-authenticate');
+    const result = document.getElementById('result');
+
+    createButton.addEventListener('click', async () => {
+      await createCredential();
+    });
+
+    authenticateButton.addEventListener('click', async () => {
+      await authenticate();
+    });
+
+    async function createCredential() {
+      resetAlerts();
+      const wellKnownUser = user();
+      const challenge = crypto.getRandomValues(new Uint8Array(16));
+
+      const request = {
+        challenge,
+        pubKeyCredParams: [],
+        authenticatorSelection: {
+          residentKey: "required",
+        },
+        rp: {
+          name: "PRF Demo",
+        },
+        user: wellKnownUser,
+        userVerification: "discouraged",
+      };
+
+      console.log("createCredential - Params:", {
+        ...request,
+        challenge: toB64Url(challenge),
+        user: {
+          ...request.user,
+          id: toB64Url(request.user.id),
+        },
+      });
+
+      try {
+
+
+        const result = await navigator.credentials.create({
+          publicKey: request,
+        });
+
+        console.log("createCredential - Result", {
+          id: result.id,
+          rawId: toB64Url(result.rawId),
+          response: {
+            ...result.response,
+            attestationObject: toB64Url(result.response.attestationObject),
+            clientDataJSON: toB64Url(result.response.clientDataJSON),
+            clientDataJSONDecoded: JSON.parse(
+              new TextDecoder().decode(result.response.clientDataJSON)
+            ),
+          },
+          authenticatorAttachment: result.authenticatorAttachment,
+          type: result.type,
+        });
+
+        showSuccess();
+      } catch (e) {
+        console.error(e);
+        showFail();
+      }
+    }
+
+    async function authenticate() {
+      resetAlerts();
+      const wellKnownUser = user();
+      const challenge = crypto.getRandomValues(new Uint8Array(16));
+
+      const request = {
+        challenge,
+        pubKeyCredParams: [],
+        allowCredentials: [],
+        user: wellKnownUser,
+        userVerification: "discouraged",
+      };
+
+      console.log("getCredential - Params:", {
+        ...request,
+        challenge: toB64Url(challenge),
+        allowCredentials: request.allowCredentials.map((cred) => ({
+          ...cred,
+          id: toB64Url(cred.id),
+        })),
+        user: {
+          ...request.user,
+          id: toB64Url(request.user.id),
+        },
+      });
+
+      try {
+
+
+        const result = await navigator.credentials.get({
+          publicKey: request,
+        });
+
+        console.log("getCredential - Result:", {
+          id: result.id,
+          rawId: toB64Url(result.rawId),
+          response: {
+            ...result.response,
+            attestationObject: toB64Url(result.response.attestationObject),
+            clientDataJSON: toB64Url(result.response.clientDataJSON),
+            clientDataJSONDecoded: JSON.parse(
+              new TextDecoder().decode(result.response.clientDataJSON)
+            ),
+          },
+          authenticatorAttachment: result.authenticatorAttachment,
+          type: result.type,
+        });
+
+        showSuccess();
+      }
+      catch (e) {
+        console.error(e);
+        showFail();
+      }
+    }
+
+    function user() {
+      return {
+        name: "PRF Demo User",
+        displayName: "PRF Demo User",
+        id: new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+      };
+    }
+
+    function toB64(input) {
+      return btoa(String.fromCharCode.apply(null, new Uint8Array(input)));
+    }
+
+    function fromB64(input) {
+      return Uint8Array.from(atob(input), (c) => c.charCodeAt(0));
+    }
+
+    function toB64Url(input) {
+      return toB64(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    }
+
+    function fromB64Url(input) {
+      return fromB64(input.replace(/-/g, "+").replace(/_/g, "/"));
+    }
+
+    function showSuccess() {
+      resetAlerts();
+      const alert = document.querySelector(".webauthn-success");
+      alert.classList.remove("d-none");
+    }
+
+    function showFail() {
+      resetAlerts();
+      const alert = document.querySelector(".webauthn-fail");
+      alert.classList.remove("d-none");
+    }
+
+    function resetAlerts() {
+      const alerts = document.querySelectorAll(".webauthn-alert");
+      for (const alert of alerts) {
+        alert.classList.add("d-none");
+      }
+    }
+  </script>
+</body>
+
+</html>
